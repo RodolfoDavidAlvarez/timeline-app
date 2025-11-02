@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { Plus, Minus, Calendar, X, Trash2, Trash, FileText, ExternalLink, Link2, Download } from "lucide-react";
 import "./App.css";
 
 const departments = ["Research and Development", "Operations", "Marketing", "Sales", "Administrative"];
+const ACCESS_CODE = "SSW2025@";
 const BASE_TIMELINE_SPAN = 1600;
 const TIMELINE_SIDE_PADDING = 200;
 const SINGLE_DATE_SPACING = 200;
@@ -114,7 +115,10 @@ function App() {
     }, {});
   };
 
-  const [activeView, setActiveView] = useState("timeline");
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("sswHubAccess") === "true");
+  const [passcode, setPasscode] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [activeView, setActiveView] = useState("home");
   const [events, setEvents] = useState(loadEvents);
   const [documents, setDocuments] = useState(loadDocuments);
   const [showModal, setShowModal] = useState(false);
@@ -138,6 +142,30 @@ function App() {
   useEffect(() => {
     localStorage.setItem("companyDocuments", JSON.stringify(documents));
   }, [documents]);
+
+  const handleAuthenticate = (event) => {
+    event.preventDefault();
+    if (passcode.trim() === ACCESS_CODE) {
+      setIsAuthenticated(true);
+      setActiveView("home");
+      localStorage.setItem("sswHubAccess", "true");
+      setPasscode("");
+      setAuthError("");
+    } else {
+      setAuthError("Incorrect access code. Try again.");
+    }
+  };
+
+  const handleSignOut = () => {
+    setIsAuthenticated(false);
+    setActiveView("home");
+    setShowModal(false);
+    setShowDocumentModal(false);
+    setEditingEvent(null);
+    setPasscode("");
+    setAuthError("");
+    localStorage.removeItem("sswHubAccess");
+  };
 
   const getYearMarkers = () => {
     if (events.length === 0) return [];
@@ -388,17 +416,57 @@ function App() {
   const furthestPosition = eventPositions.length > 0 ? Math.max(...eventPositions) : 0;
   const timelineWidth = Math.max(baseTimelineWidth, furthestPosition + EXTRA_RIGHT_MARGIN);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="auth-screen">
+        <Motion.div className="auth-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <h1>Soil, Seed &amp; Water Hub</h1>
+          <p className="auth-subtitle">Enter the access code to continue.</p>
+          <form className="auth-form" onSubmit={handleAuthenticate}>
+            <label className="sr-only" htmlFor="access-code">
+              Access Code
+            </label>
+            <input
+              id="access-code"
+              type="password"
+              value={passcode}
+              onChange={(event) => {
+                setPasscode(event.target.value);
+                if (authError) {
+                  setAuthError("");
+                }
+              }}
+              placeholder="Access code"
+              autoComplete="off"
+              className="auth-input"
+              required
+            />
+            {authError && <p className="auth-error">{authError}</p>}
+            <Motion.button type="submit" className="btn btn-primary auth-submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              Enter Hub
+            </Motion.button>
+          </form>
+        </Motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
-      <motion.header initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="header">
+      <Motion.header initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="header">
         <div className="header-left">
           <h1>Soil, Seed &amp; Water Hub</h1>
           <p className="instructions">
-            {activeView === "timeline"
+            {activeView === "home"
+              ? "Choose an area to explore or jump back into your work."
+              : activeView === "timeline"
               ? "Use the timeline builder to map projects, zoom, and export milestones."
               : "Browse every document by department, keep links current, and launch resources instantly."}
           </p>
           <div className="nav-tabs">
+            <button type="button" className={`nav-tab ${activeView === "home" ? "active" : ""}`} onClick={() => setActiveView("home")}>
+              Home
+            </button>
             <button type="button" className={`nav-tab ${activeView === "timeline" ? "active" : ""}`} onClick={() => setActiveView("timeline")}>
               Timeline Builder
             </button>
@@ -411,46 +479,80 @@ function App() {
         <div className="controls">
           {activeView === "timeline" && (
             <>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => openEventModal()} className="btn btn-primary">
+              <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => openEventModal()} className="btn btn-primary">
                 <Plus size={20} />
                 Add Event
-              </motion.button>
+              </Motion.button>
               {events.length > 0 && (
                 <>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={exportTimeline} className="btn btn-secondary">
+                  <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={exportTimeline} className="btn btn-secondary">
                     <Download size={18} />
                     Export
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={clearAllEvents} className="btn btn-danger">
+                  </Motion.button>
+                  <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={clearAllEvents} className="btn btn-danger">
                     <Trash size={20} />
                     Clear All
-                  </motion.button>
+                  </Motion.button>
                 </>
               )}
               <div className="zoom-controls">
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={zoomOut} className="zoom-btn">
+                <Motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={zoomOut} className="zoom-btn">
                   <Minus size={18} />
-                </motion.button>
+                </Motion.button>
                 <span className="zoom-level">{Math.round(zoom * 100)}%</span>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={zoomIn} className="zoom-btn">
+                <Motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={zoomIn} className="zoom-btn">
                   <Plus size={18} />
-                </motion.button>
+                </Motion.button>
               </div>
             </>
           )}
 
           {activeView === "library" && (
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={openDocumentModal} className="btn btn-primary">
+            <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={openDocumentModal} className="btn btn-primary">
               <Plus size={20} />
               Add Document
-            </motion.button>
+            </Motion.button>
           )}
+          <Motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleSignOut} className="btn btn-secondary sign-out-btn">
+            Sign Out
+          </Motion.button>
         </div>
-      </motion.header>
+      </Motion.header>
+
+      {activeView === "home" && (
+        <Motion.section className="home-view" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="home-card">
+            <h2>Welcome back!</h2>
+            <p className="home-subtitle">Pick where to dive in next for Soil, Seed &amp; Water.</p>
+            <div className="home-actions">
+              <Motion.button
+                type="button"
+                className="home-cta"
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setActiveView("timeline")}
+              >
+                <Calendar size={28} />
+                <span>Timeline Builder</span>
+              </Motion.button>
+              <Motion.button
+                type="button"
+                className="home-cta"
+                whileHover={{ y: -4 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setActiveView("library")}
+              >
+                <FileText size={28} />
+                <span>Resource Library</span>
+              </Motion.button>
+            </div>
+          </div>
+        </Motion.section>
+      )}
 
       {activeView === "timeline" && (
         <div ref={scrollContainerRef} className="timeline-wrapper">
-          <motion.div
+          <Motion.div
             ref={timelineRef}
             className="timeline-container"
             style={{
@@ -465,7 +567,7 @@ function App() {
                 const dateStr = `${yearMarker.date.getFullYear()}-${String(yearMarker.date.getMonth() + 1).padStart(2, "0")}-${String(yearMarker.date.getDate()).padStart(2, "0")}`;
                 const position = getTimelinePosition(dateStr);
                 return (
-                  <motion.div
+                  <Motion.div
                     key={yearMarker.year}
                     className="year-marker"
                     style={{ left: `${position}px` }}
@@ -475,7 +577,7 @@ function App() {
                   >
                     <div className="year-marker-line" />
                     <div className="year-marker-label">{yearMarker.year}</div>
-                  </motion.div>
+                  </Motion.div>
                 );
               })}
 
@@ -485,7 +587,7 @@ function App() {
                 const position = getTimelinePosition(dateStr);
                 const monthName = new Date(monthMarker.year, monthMarker.month, 1).toLocaleDateString("en-US", { month: "short" });
                 return (
-                  <motion.div
+                  <Motion.div
                     key={`${monthMarker.year}-${monthMarker.month}`}
                     className="month-marker"
                     style={{ left: `${position}px` }}
@@ -495,7 +597,7 @@ function App() {
                   >
                     <div className="month-marker-line" />
                     <div className="month-marker-label">{monthName}</div>
-                  </motion.div>
+                  </Motion.div>
                 );
               })}
 
@@ -513,7 +615,7 @@ function App() {
                 const isTop = index % 2 === 0;
 
                 return (
-                  <motion.div
+                  <Motion.div
                     key={eventItem.id}
                     className={`timeline-event ${isTop ? "top" : "bottom"}`}
                     style={{ left: `${position}px` }}
@@ -524,12 +626,12 @@ function App() {
                   >
                     <div className="event-marker" style={{ backgroundColor: eventItem.color }} />
                     <div className="event-connector" />
-                    <motion.div
+                    <Motion.div
                       className="event-card"
                       style={{ borderColor: eventItem.color }}
                       whileHover={{ boxShadow: `0 8px 30px ${eventItem.color}40` }}
                     >
-                      <motion.button
+                      <Motion.button
                         className="delete-btn-quick"
                         onClick={(mouseEvent) => {
                           mouseEvent.stopPropagation();
@@ -539,7 +641,7 @@ function App() {
                         whileTap={{ scale: 0.9 }}
                       >
                         <X size={16} />
-                      </motion.button>
+                      </Motion.button>
                       <div className="event-date">
                         <Calendar size={14} />
                         {new Date(eventItem.date).toLocaleDateString("en-US", {
@@ -550,20 +652,20 @@ function App() {
                       </div>
                       <h3 className="event-title">{eventItem.title}</h3>
                       <p className="event-description">{eventItem.description}</p>
-                    </motion.div>
-                  </motion.div>
+                    </Motion.div>
+                  </Motion.div>
                 );
               })}
-          </motion.div>
+          </Motion.div>
         </div>
       )}
 
       {activeView === "library" && (
-        <motion.div className="library-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <Motion.div className="library-wrapper" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           {departments.map((department) => {
             const departmentDocuments = documents[department] || [];
             return (
-              <motion.section key={department} className="department-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+              <Motion.section key={department} className="department-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
                 <div className="department-header">
                   <h2>{department}</h2>
                   <span className="document-count">
@@ -575,7 +677,7 @@ function App() {
                 ) : (
                   <div className="document-grid">
                     {departmentDocuments.map((document) => (
-                      <motion.div
+                      <Motion.div
                         key={document.id}
                         className="document-item"
                         whileHover={{ translateY: -6 }}
@@ -600,20 +702,20 @@ function App() {
                         >
                           <X size={16} />
                         </button>
-                      </motion.div>
+                      </Motion.div>
                     ))}
                   </div>
                 )}
-              </motion.section>
+              </Motion.section>
             );
           })}
-        </motion.div>
+        </Motion.div>
       )}
 
       <AnimatePresence>
         {showModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeEventModal}>
-            <motion.div
+          <Motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeEventModal}>
+            <Motion.div
               className="modal"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -622,9 +724,9 @@ function App() {
             >
               <div className="modal-header">
                 <h2>{editingEvent ? "Edit Event" : "Add New Event"}</h2>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={closeEventModal} className="close-btn">
+                <Motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={closeEventModal} className="close-btn">
                   <X size={20} />
-                </motion.button>
+                </Motion.button>
               </div>
 
               <form onSubmit={handleEventSubmit} className="event-form">
@@ -655,11 +757,11 @@ function App() {
                 </div>
 
                 <div className="form-actions">
-                  <motion.button type="submit" className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Motion.button type="submit" className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     {editingEvent ? "Save Changes" : "Add Event"}
-                  </motion.button>
+                  </Motion.button>
                   {editingEvent && (
-                    <motion.button
+                    <Motion.button
                       type="button"
                       className="btn btn-danger"
                       whileHover={{ scale: 1.02 }}
@@ -668,19 +770,19 @@ function App() {
                     >
                       <Trash2 size={16} />
                       Delete
-                    </motion.button>
+                    </Motion.button>
                   )}
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {showDocumentModal && (
-          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeDocumentModal}>
-            <motion.div
+          <Motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeDocumentModal}>
+            <Motion.div
               className="modal"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -689,9 +791,9 @@ function App() {
             >
               <div className="modal-header">
                 <h2>Add Document Link</h2>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={closeDocumentModal} className="close-btn">
+                <Motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={closeDocumentModal} className="close-btn">
                   <X size={20} />
-                </motion.button>
+                </Motion.button>
               </div>
 
               <form onSubmit={handleDocumentSubmit} className="event-form">
@@ -749,13 +851,13 @@ function App() {
                 </div>
 
                 <div className="form-actions">
-                  <motion.button type="submit" className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Motion.button type="submit" className="btn btn-primary" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                     Save Document
-                  </motion.button>
+                  </Motion.button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>
