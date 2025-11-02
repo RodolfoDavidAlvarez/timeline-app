@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import { Plus, Minus, Calendar, X, Trash2, Trash, FileText, ExternalLink, Link2, Download } from "lucide-react";
+import { Plus, Minus, Calendar, X, Trash2, Trash, FileText, ExternalLink, Link2, Download, Eye, EyeOff } from "lucide-react";
 import "./App.css";
 
-const departments = ["Research and Development", "Operations", "Marketing", "Sales", "Administrative"];
+const departments = ["Research and Development", "Operations", "Marketing & Branding", "Sales", "Administrative"];
+const departmentRenames = {
+  Marketing: "Marketing & Branding",
+};
 const ACCESS_CODE = "SSW2025@";
 const BASE_TIMELINE_SPAN = 1600;
 const TIMELINE_SIDE_PADDING = 200;
@@ -97,6 +100,15 @@ function App() {
           }
         });
 
+        // Migrate any legacy department keys to their updated names.
+        Object.entries(departmentRenames).forEach(([oldName, newName]) => {
+          if (normalized[oldName]) {
+            const existing = normalized[newName] || [];
+            normalized[newName] = [...existing, ...normalized[oldName]];
+            delete normalized[oldName];
+          }
+        });
+
         departments.forEach((department) => {
           if (!normalized[department]) {
             normalized[department] = [];
@@ -117,6 +129,7 @@ function App() {
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem("sswHubAccess") === "true");
   const [passcode, setPasscode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState("");
   const [activeView, setActiveView] = useState("home");
   const [events, setEvents] = useState(loadEvents);
@@ -426,21 +439,31 @@ function App() {
             <label className="sr-only" htmlFor="access-code">
               Access Code
             </label>
-            <input
-              id="access-code"
-              type="password"
-              value={passcode}
-              onChange={(event) => {
-                setPasscode(event.target.value);
-                if (authError) {
-                  setAuthError("");
-                }
-              }}
-              placeholder="Access code"
-              autoComplete="off"
-              className="auth-input"
-              required
-            />
+            <div className="auth-input-wrapper">
+              <input
+                id="access-code"
+                type={showPassword ? "text" : "password"}
+                value={passcode}
+                onChange={(event) => {
+                  setPasscode(event.target.value);
+                  if (authError) {
+                    setAuthError("");
+                  }
+                }}
+                placeholder="Access code"
+                autoComplete="off"
+                className="auth-input"
+                required
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {authError && <p className="auth-error">{authError}</p>}
             <Motion.button type="submit" className="btn btn-primary auth-submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
               Enter Hub
